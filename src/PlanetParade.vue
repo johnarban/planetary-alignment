@@ -377,8 +377,8 @@
                 <p>
                   You can use this resource to simulate the planet parade where you are.
                   <ul>
-                    <li>Click <font-awesome-icon class="bullet-icon" icon="location-dot"/> in the top-center of the view and choose your location. (The default location is Cambridge, MA if location services are not enabled in your browser.)</li>
-                    <li>The display defaults to the current date and time. If you are viewing this app during the day, use the time controls to advance time until just after sunset.</li>
+                    <li>Click <font-awesome-icon class="bullet-icon" icon="location-dot"/> in the top-center of the view and choose your location. (The default location is Cambridge, MA.)</li>
+                    <li>The display defaults to 4pm local time. Use the time controls to advance time until just after sunset.</li>
                     <li>
                       If <span style="color: var(--accent-color)">Horizon/Sky</span> is checked, you can see the Sun rise above the horizon in the morning and set in the evening. The sky will lighten and darken with the Sun's changing position. 
                     </li>
@@ -508,7 +508,7 @@ import { useTimezone } from "./timezones";
 import { equatorialToHorizontal, horizontalToEquatorial } from "./utils";
 import { resetAltAzGridText, makeAltAzGridText, drawPlanets, renderOneFrame } from "./wwt-hacks";
 import { MapBoxFeature, MapBoxFeatureCollection, geocodingInfoForSearch, textForLocation } from "@cosmicds/vue-toolkit/src/mapbox";
-import { useGeolocation } from "@cosmicds/vue-toolkit";
+// import { useGeolocation } from "@cosmicds/vue-toolkit";
 const SECONDS_PER_DAY = 60 * 60 * 24;
 const MILLISECONDS_PER_DAY = 1000 * SECONDS_PER_DAY;
 const millisecondsPerInterval = MILLISECONDS_PER_DAY / 48;
@@ -563,37 +563,37 @@ const selectedLocation = ref<LocationDeg>({
 const selectedLocationText = ref("");
 updateSelectedLocationText();
 
-const { geolocation, geolocate} = useGeolocation();
-function useGeolocated() {
-  if (!geolocation.value) {return;}
-  selectedLocation.value = { latitudeDeg: geolocation.value.latitude, longitudeDeg: geolocation.value.longitude };
-}
-watch(
-  geolocation,
-  (location) => {
-    if (location) {
-      selectedLocation.value = { latitudeDeg: location?.latitude, longitudeDeg: location?.longitude };
-    }
-  }
-);
+// const { geolocation, geolocate} = useGeolocation();
+// function useGeolocated() {
+//   if (!geolocation.value) {return;}
+//   selectedLocation.value = { latitudeDeg: geolocation.value.latitude, longitudeDeg: geolocation.value.longitude };
+// }
+// watch(
+//   geolocation,
+//   (location) => {
+//     if (location) {
+//       selectedLocation.value = { latitudeDeg: location?.latitude, longitudeDeg: location?.longitude };
+//     }
+//   }
+// );
 
 const searchErrorMessage = ref<string | null>(null);
 const { selectedTimezone, selectedTimezoneOffset, shortTimezone, browserTimezoneOffset } = useTimezone(selectedLocation);
 
-const todayAt4pm = computed(() => {
-  const now = Date.now();
-  const date = new Date(now);
-  console.log(date);
-  date.setUTCMilliseconds(0);
-  date.setUTCSeconds(0);
-  date.setUTCMinutes(0);
-  console.log(selectedTimezoneOffset.value);
-  const msToHours = 1000 * 60 * 60;
-  date.setUTCHours(16 - selectedTimezoneOffset.value / msToHours);
-  console.log(date);
-  return date.getTime();
-});
-const selectedTime = ref(todayAt4pm.value);
+// const todayAt4pm = computed(() => {
+//   const now = Date.now();
+//   const date = new Date(now);
+//   console.log(date);
+//   date.setUTCMilliseconds(0);
+//   date.setUTCSeconds(0);
+//   date.setUTCMinutes(0);
+//   console.log(selectedTimezoneOffset.value);
+//   const msToHours = 1000 * 60 * 60;
+//   date.setUTCHours(16 - selectedTimezoneOffset.value / msToHours);
+//   console.log(date);
+//   return date.getTime();
+// });
+const selectedTime = ref(Date.now());
 
 // faking localization because
 // <date-time-picker> and <time-display> are not timezone aware
@@ -645,10 +645,22 @@ function doWWTModifications() {
   WWTControl.singleton.renderOneFrame = newFrameRender;
 
   const originalUpdatePlanetLocations = Planets.updatePlanetLocations;
+  const planetScales = [
+    8,  // Sun
+    1.25,  // Mercury
+    1.25,  // Venus
+    1.25,  // Mars
+    2.5,  // Jupiter
+    4.5,  // Saturn
+    2,  // Uranus
+    2,  // Neptune
+    1,  // Pluto
+    1.25,  // Moon
+  ];
   function newUpdatePlanetLocations(threeD: boolean) {
     originalUpdatePlanetLocations(threeD);
     for (let i = 0; i <= SolarSystemObjects.moon; i++) {
-      Planets._planetScales[i] *= 5;
+      Planets._planetScales[i] = planetScales[i];
     }
   }
   Planets.updatePlanetLocations = newUpdatePlanetLocations;
@@ -675,17 +687,18 @@ onMounted(() => {
     updateEcliptic(showEcliptic.value);
     updateConstellations(showConstellations.value);
     updateWWTLocation(selectedLocation.value);
-
+    // store.setTime(new Date(selectedTime.value));
     store.setClockSync(false);
     store.setClockRate(1800);
 
     doWWTModifications();
     resetCamera().then(() => positionSet.value = true);
-    geolocate().then(() => {
-      console.log('got location');
-      useGeolocated(); 
-      selectedTime.value = todayAt4pm.value;
-    });
+    // geolocate().then(() => {
+    //   console.log('got location');
+    //   useGeolocated(); 
+    //   selectedTime.value = todayAt4pm.value;
+    //   resetCamera();
+    // });
 
     setInterval(() => {
       if (playing.value) {
