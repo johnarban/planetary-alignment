@@ -560,7 +560,7 @@
   <v-container>
     <v-expand-transition>
       <user-experience
-        v-hide="true"
+        v-if="showRating"
         :question="question"
         icon-size="3x"
         @dismiss="(_rating: UserExperienceRating | null, _comments: string | null) => {
@@ -614,8 +614,8 @@ import { useSun } from './useSun';
 const STORY_DATA_URL = `${API_BASE_URL}/planet-parade/data`;
 const STORY_RATING_URL = `${API_BASE_URL}/stories/user-experience/planet-parade`;
 
-const UUID_KEY = "eclipse-mini-uuid" as const;
-const OPT_OUT_KEY = "eclipse-mini-optout" as const;
+const UUID_KEY = "planet-parade-mini-uuid" as const;
+const OPT_OUT_KEY = "planet-parade-mini-optout" as const;
 const SKIP_INTRO_CONTENT_KEY = "skip-intro-content" as const;
 const maybeUUID = window.localStorage.getItem(UUID_KEY);
 const storedOptOut = window.localStorage.getItem(OPT_OUT_KEY);
@@ -628,7 +628,10 @@ const question = Math.random() > 0.5 ?
 const currentRating = ref<UserExperienceRating | null>(null);
 const currentComments = ref<string | null>(null);
 if (!existingUser) {
+  console.log(`Generated new user UUID: ${uuid}`);
   window.localStorage.setItem(UUID_KEY, uuid);
+} else {
+  console.log(`Existing user UUID: ${uuid}`);
 }
 let infoTimeMs = 0;
 let videoPlayingTimeMs = 0;
@@ -697,6 +700,12 @@ const optOut = typeof storedOptOut === "string" ? storedOptOut === "true" : null
 const responseOptOut = ref(optOut);
 
 const showRating = ref(false);
+console.table({
+  existingUser,
+  storedOptOut,
+  optOut,
+  responseOptOut: responseOptOut.value,
+});
 
 const geocodingOptions = {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -854,8 +863,10 @@ onMounted(() => {
     updateWWTLocation(selectedLocation.value);
     store.setClockSync(false);
     store.setClockRate(1800);
+    
 
-    doWWTModifications();
+    nextTick(() => doWWTModifications());
+  
     // geolocate().then(() => {
     //   console.log('got location');
     //   useGeolocated(); 
@@ -863,7 +874,9 @@ onMounted(() => {
     //   resetCamera();
     // });
     
+    console.log("Creating user entry");
     createUserEntry();
+    console.log("Setting up rating display");
     ratingDisplaySetup();
 
     setInterval(() => {
@@ -883,8 +896,10 @@ onMounted(() => {
 
     window.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
+        console.log("Document hidden, updating user data");
         updateUserData();
       } else {
+        console.log("Document visible, resetting data collection");
         resetData();
       }
     });
@@ -1017,30 +1032,50 @@ function updateLocationFromMap(location: LocationDeg) {
 }
 
 async function ratingDisplaySetup() {
+  console.log("Setting up rating display");
   if (responseOptOut.value) {
+    console.log("User has opted out of data collection");
     return;
   }
-
+  console.log("Setting up rating display for", uuid);
   const existsResponse = await fetch(`${STORY_RATING_URL}/${uuid}`, {
     method: "GET",
     // eslint-disable-next-line @typescript-eslint/naming-convention
     headers: { "Authorization": process.env.VUE_APP_CDS_API_KEY ?? "" }
+  }).then((response) => {
+    console.log("Got response checking for existing user experience info", response);
+    return response;
+  }).catch((err) => {
+    console.error("Error checking for existing user experience info", err);
   });
 
   // NB: If we want to ask multiple questions, this logic can be adjusted
   const existsContent = await existsResponse.json();
   const exists = existsResponse.status === 200 && existsContent.ratings?.length > 0;
+  console.log("Existing user experience info response content", existsContent);
 
   if (exists) {
+    console.log("User experience info already exists for this user, not showing rating prompt");
     return;
   }
-
+  console.log("User experience info does not exist for this user, will show rating prompt in 5 seconds");
+  // create a countdown in the console to this event
+  let countdown = 10;
+  const countdownInterval = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(countdownInterval);
+    } else {
+      console.log(`Showing rating prompt in ${countdown} seconds...`);
+    }
+  }, 1000);
   setTimeout(() => {
     showRating.value = true; 
-  }, 40_000);
+  }, 10_000);
 }
 
 function updateUserExperienceInfo(rating: UserExperienceRating | null, comments: string | null) {
+  console.log("Updating user experience info", { rating, comments });
   const body: Record<string, unknown> = {
     uuid,
     question,
@@ -1053,6 +1088,8 @@ function updateUserExperienceInfo(rating: UserExperienceRating | null, comments:
   if (comments) {
     body.comments = comments;
   }
+  console.log("Submitting user experience info", body);
+  console.log("Submitting to url", STORY_RATING_URL);
   fetch(STORY_RATING_URL, {
     method: "PUT",
     headers: {
@@ -1061,11 +1098,15 @@ function updateUserExperienceInfo(rating: UserExperienceRating | null, comments:
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  }).catch((err) => {
+    console.error("Error submitting user experience info", err);
   });
 }
 
 async function createUserEntry() {
+  console.log("Creating user data entry");
   if (responseOptOut.value) {
+    console.log("User has opted out of data collection. Not creating user data entry");
     return;
   }
 
@@ -1076,7 +1117,9 @@ async function createUserEntry() {
   });
   const content = await response.json();
   const exists = response.status === 200 && content.response?.user_uuid != undefined;
+  console.log("Existing user data response content", content);
   if (exists) {
+    console.log("User data entry already exists for this user, not creating a new one");
     return;
   }
 
@@ -1113,10 +1156,15 @@ async function createUserEntry() {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       wwt_start_stop_times: [wwtStats.startTime, selectedTime.value],
     }),
+  }).then(() => {
+    console.log("Created new user data entry");
+  }).catch((err) => {
+    console.error("Error creating user data entry", err);
   });
 }
 
 function resetData() {
+  console.log("Resetting user data timers and selections");
   userSelectedMapLocations = [];
   userSelectedSearchLocations = [];
   infoTimeMs = 0;
@@ -1137,9 +1185,12 @@ function resetData() {
 }
 
 async function updateUserData() {
+  console.log("Updating user data");
   if (responseOptOut.value) {
+    console.log("User has opted out of data collection");
     return;
   }
+  console.log("Updating user data for", uuid);
 
   const now = Date.now();
   const infoTime = (showTextSheet.value && infoStartTimestamp !== null) ? now - infoStartTimestamp : infoTimeMs;
@@ -1307,7 +1358,9 @@ watch(inIntro, (intro: boolean) => {
 });
 
 watch(responseOptOut, (optOut: boolean | null) => {
+  console.log("User opt out changed", optOut);
   if (optOut !== null) {
+    console.log("Setting opt out in local storage", optOut);
     window.localStorage.setItem(OPT_OUT_KEY, String(optOut));
   }
 });

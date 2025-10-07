@@ -3,11 +3,11 @@ name: Build and Deploy
 on:
   push:
     branches:
-      main
+      test-deploy
 
 jobs:
   build:
-    if: ${{ github.repository_owner == 'cosmicds' }}
+    if: ${{ github.repository_owner == 'johnarban' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
