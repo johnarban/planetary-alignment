@@ -614,8 +614,8 @@ import { useSun } from './useSun';
 const STORY_DATA_URL = `${API_BASE_URL}/planet-parade/data`;
 const STORY_RATING_URL = `${API_BASE_URL}/stories/user-experience/planet-parade`;
 
-const UUID_KEY = "eclipse-mini-uuid" as const;
-const OPT_OUT_KEY = "eclipse-mini-optout" as const;
+const UUID_KEY = "planet-parade-mini-uuid" as const;
+const OPT_OUT_KEY = "planet-parade-mini-optout" as const;
 const SKIP_INTRO_CONTENT_KEY = "skip-intro-content" as const;
 const maybeUUID = window.localStorage.getItem(UUID_KEY);
 const storedOptOut = window.localStorage.getItem(OPT_OUT_KEY);
